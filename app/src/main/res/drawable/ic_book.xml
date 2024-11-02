@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="280dp"
+    android:viewportWidth="240"
+    android:viewportHeight="280">
+    <!-- Background red document shape -->
+    <path
+        android:fillColor="#D32F2F"
+        android:pathData="M40,20h160c11,0 20,9 20,20v200c0,11 -9,20 -20,20H40c-11,0 -20,-9 -20,-20V40c0,-11 9,-20 20,-20z" />
+
+    <!-- Folded corner -->
+    <path
+        android:fillColor="#B71C1C"
+        android:pathData="M170,20l50,50h-30c-11,0 -20,-9 -20,-20V20z" />
+
+    <!-- Horizontal lines -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,100h120v10H60v-10zm0,40h120v10H60v-10z" />
+
+    <!-- P -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,200h25c5,0,10,5,10,10v10c0,5,-5,10,-10,10h-15v20h-10z M80,210v10h10v-10z" />
+
+    <!-- D -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M110,200h25c5,0,10,5,10,10v30c0,5,-5,10,-10,10h-25z M120,210v30h10c2,0,5,-2,5,-5v-20c0,-3,-3,-5,-5,-5z" />
+
+    <!-- F -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M160,200h30v10h-20v10h15v10h-15v20h-10z" />
+</vector>
