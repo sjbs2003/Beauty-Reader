@@ -3,6 +3,7 @@ package com.example.beautyreader
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,20 +15,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,8 +44,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,19 +66,31 @@ fun ReaderApp(
 
     Scaffold(
         topBar = {
-            ReaderTopBar(
+            TopBar(
                 onUploadClick = { showFilePickerDialog = true }
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                        )
+                    )
+                )
+        ) {
             bookContent?.let { content ->
                 ReaderContent(
                     content = content,
                     currentPage = currentPage,
                     onPageChange = viewModel::navigateToPage
                 )
-            } ?: EmptyStateView(
+            } ?: EmptyState(
                 onUploadClick = { showFilePickerDialog = true }
             )
         }
@@ -78,7 +100,7 @@ fun ReaderApp(
         FilePickerDialog(
             onDismiss = { showFilePickerDialog = false },
             onFileSelected = { uri ->
-                viewModel.loadPDF(uri, context)  // Pass the context here
+                viewModel.loadPDF(uri, context)
                 showFilePickerDialog = false
             }
         )
@@ -87,11 +109,30 @@ fun ReaderApp(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReaderTopBar(
+fun TopBar(
     onUploadClick: () -> Unit
 ) {
     CenterAlignedTopAppBar(
-        title = { Text("Beauty Reader") },
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_book),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Beauty Reader",
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+        },
         actions = {
             IconButton(onClick = onUploadClick) {
                 Icon(
@@ -99,8 +140,17 @@ fun ReaderTopBar(
                     contentDescription = "Upload PDF"
                 )
             }
+            IconButton(onClick = { /* TODO: Add settings */ }) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings"
+                )
+            }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors()
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+        ),
+        modifier = Modifier.shadow(4.dp)
     )
 }
 
@@ -136,20 +186,27 @@ fun PageContent(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp)
+            ),
         shape = RoundedCornerShape(16.dp),
-        shadowElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
     ) {
-        Box(
+        Column(
             modifier = Modifier
+                .verticalScroll(rememberScrollState()) // Enable vertical scrolling
                 .padding(24.dp)
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge,
-                lineHeight = 28.sp,
-                letterSpacing = 0.5.sp
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    lineHeight = 28.sp,
+                    letterSpacing = 0.5.sp
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -161,36 +218,67 @@ fun PageControls(
     totalPages: Int,
     onPageChange: (Int) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        IconButton(
-            onClick = { onPageChange(currentPage - 1) },
-            enabled = currentPage > 0
-        ) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous page")
-        }
-
-        Text(
-            text = "${currentPage + 1} / $totalPages",
-            style = MaterialTheme.typography.bodyMedium
+        // Progress Bar
+        LinearProgressIndicator(
+            progress = { (currentPage + 1).toFloat() / totalPages },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
         )
 
-        IconButton(
-            onClick = { onPageChange(currentPage + 1) },
-            enabled = currentPage < totalPages - 1
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next page")
+            TextButton(
+                onClick = { onPageChange(currentPage - 1) },
+                enabled = currentPage > 0
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = null
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Previous")
+            }
+
+            Text(
+                text = "Page ${currentPage + 1} of $totalPages",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Medium
+                )
+            )
+
+            TextButton(
+                onClick = { onPageChange(currentPage + 1) },
+                enabled = currentPage < totalPages - 1
+            ) {
+                Text("Next")
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null
+                )
+            }
         }
     }
 }
 
 @Composable
-fun EmptyStateView(onUploadClick: () -> Unit) {
+fun EmptyState(
+    onUploadClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -201,25 +289,41 @@ fun EmptyStateView(onUploadClick: () -> Unit) {
         Icon(
             painter = painterResource(R.drawable.ic_book),
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier
+                .size(120.dp)
+                .padding(8.dp),
             tint = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Upload a PDF to start reading",
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(onClick = onUploadClick) {
+        Text(
+            text = "Your Reading Journey Starts Here",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Upload a PDF to begin reading",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        ElevatedButton(
+            onClick = onUploadClick,
+            modifier = Modifier.height(48.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("Upload PDF")
