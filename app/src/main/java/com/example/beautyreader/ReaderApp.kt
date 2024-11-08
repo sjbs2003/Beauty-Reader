@@ -22,8 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,7 +38,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,6 +57,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.beautyreader.model.PdfEntity
+import java.time.LocalDateTime
 
 @Composable
 fun ReaderApp(
@@ -67,7 +72,28 @@ fun ReaderApp(
     Scaffold(
         topBar = {
             TopBar(
-                onUploadClick = { showFilePickerDialog = true }
+                onUploadClick = { showFilePickerDialog = true },
+                currentPDF = bookContent?.let { content ->
+                    PdfEntity(
+                        uri = viewModel.currentPDFUri.toString() ?: "",
+                        title = content.title,
+                        lastOpenedDate = LocalDateTime.now(),
+                        savedData = LocalDateTime.now()
+                    )
+                },
+                onDeleteClick = {
+                    viewModel.currentPDFUri.let { uri ->
+                        viewModel.deletePDF(
+                            PdfEntity(
+                                uri = uri.toString(),
+                                title = bookContent?.title ?: "Unknown book",
+                                lastOpenedDate = LocalDateTime.now(),
+                                savedData = LocalDateTime.now()
+                            )
+                        )
+                        viewModel.clearCurrentBook()
+                    }
+                }
             )
         }
     ) { padding ->
@@ -105,13 +131,21 @@ fun ReaderApp(
             }
         )
     }
+
+    LaunchedEffect(Unit) {
+        viewModel.cleanOldPDFs()
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(
-    onUploadClick: () -> Unit
+    onUploadClick: () -> Unit,
+    currentPDF: PdfEntity?,
+    onDeleteClick: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     CenterAlignedTopAppBar(
         title = {
             Row(
@@ -121,12 +155,11 @@ fun TopBar(
                 Icon(
                     painter = painterResource(R.drawable.ic_book),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Beauty Reader",
+                    text = currentPDF?.title ?: "Beauty Reader" ,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.SemiBold
                     )
@@ -140,17 +173,39 @@ fun TopBar(
                     contentDescription = "Upload PDF"
                 )
             }
+            if (currentPDF != null) {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More options"
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = {
+                            onDeleteClick()
+                            showMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null
+                            )
+                        }
+                    )
+                }
+            }
             IconButton(onClick = { /* TODO: Add settings */ }) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings"
                 )
             }
-        },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-        ),
-        modifier = Modifier.shadow(4.dp)
+        }
     )
 }
 

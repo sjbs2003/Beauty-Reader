@@ -1,17 +1,23 @@
 package com.example.beautyreader
 
+import android.app.Application
 import android.content.Context
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.beautyreader.model.AppDatabase
+import com.example.beautyreader.model.PDFRepository
+import com.example.beautyreader.model.PdfEntity
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
 
 data class BookContent(
     val title: String,
@@ -19,17 +25,37 @@ data class BookContent(
     val totalPages: Int
 )
 
-class PDFViewModel : ViewModel() {
+class PDFViewModel(application: Application) : AndroidViewModel(application) {
+
     private val _currentPage = MutableStateFlow(0)
     val currentPage = _currentPage.asStateFlow()
 
     private val _bookContent = MutableStateFlow<BookContent?>(null)
     val bookContent = _bookContent.asStateFlow()
 
+    private val repository: PDFRepository
+    private val allPDFs: Flow<List<PdfEntity>>
+
+    private var _currentPDFUri = MutableStateFlow<Uri?>(null)
+    val currentPDFUri = _currentPDFUri.asStateFlow()
+
+    init {
+        val database = AppDatabase.getDatabase(application)
+        repository = PDFRepository(database.pdfDao())
+        allPDFs = repository.allPDFs
+    }
+
+    fun clearCurrentBook() {
+        _bookContent.value = null
+        _currentPage.value = 0
+        _currentPDFUri.value = null
+    }
+
     fun loadPDF(uri: Uri, context: Context) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
+                    _currentPDFUri.value = uri
                     // Initialize PDFBox
                     PDFBoxResourceLoader.init(context)
 
@@ -52,6 +78,16 @@ class PDFViewModel : ViewModel() {
 
                     document.close()
                     inputStream?.close()
+
+                    // Save PDF information
+                    repository.insertPDF(
+                        PdfEntity(
+                            uri = uri.toString(),
+                            title = uri.lastPathSegment ?: "Unknown Book",
+                            lastOpenedDate = LocalDateTime.now(),
+                            savedData = LocalDateTime.now()
+                        )
+                    )
                 } catch (e: Exception) {
                     e.printStackTrace()
                     // You might want to add error handling here
@@ -62,5 +98,18 @@ class PDFViewModel : ViewModel() {
 
     fun navigateToPage(page: Int) {
         _currentPage.value = page.coerceIn(0, (bookContent.value?.totalPages ?: 1) - 1)
+    }
+
+    fun deletePDF(pdf: PdfEntity){
+        viewModelScope.launch {
+            repository.deletePDF(pdf)
+        }
+    }
+
+    // function to check and delete old PDFs
+    fun cleanOldPDFs() {
+        viewModelScope.launch {
+            repository.deleteOldPDFs()
+        }
     }
 }
