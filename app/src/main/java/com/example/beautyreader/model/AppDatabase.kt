@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(entities = [PdfEntity::class], version = 1)
-@TypeConverters(com.example.beautyreader.model.Converters::class)
+@TypeConverters(Converters::class)
 abstract class AppDatabase: RoomDatabase() {
     abstract fun pdfDao(): PDFDao
 
