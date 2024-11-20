@@ -1,4 +1,4 @@
-package com.example.beautyreader
+package com.example.beautyreader.ui
 
 import android.app.Application
 import android.content.Context
@@ -34,15 +34,24 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
     val bookContent = _bookContent.asStateFlow()
 
     private val repository: PDFRepository
-    private val allPDFs: Flow<List<PdfEntity>>
+    val allPDFs: Flow<List<PdfEntity>>
 
     private var _currentPDFUri = MutableStateFlow<Uri?>(null)
     val currentPDFUri = _currentPDFUri.asStateFlow()
+
+    private val _userName = MutableStateFlow<String?>(null)
+    val userName = _userName.asStateFlow()
 
     init {
         val database = AppDatabase.getDatabase(application)
         repository = PDFRepository(database.pdfDao())
         allPDFs = repository.allPDFs
+
+        viewModelScope.launch {
+            repository.userName.collect { name ->
+                _userName.value = name
+            }
+        }
     }
 
     fun clearCurrentBook() {
@@ -56,7 +65,6 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
             withContext(Dispatchers.IO) {
                 try {
                     _currentPDFUri.value = uri
-                    // Initialize PDFBox
                     PDFBoxResourceLoader.init(context)
 
                     val inputStream = context.contentResolver.openInputStream(uri)
@@ -90,7 +98,6 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    // You might want to add error handling here
                 }
             }
         }
@@ -110,6 +117,12 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
     fun cleanOldPDFs() {
         viewModelScope.launch {
             repository.deleteOldPDFs()
+        }
+    }
+
+    fun setUserName(name: String) {
+        viewModelScope.launch {
+            repository.updateUserName(name)
         }
     }
 }

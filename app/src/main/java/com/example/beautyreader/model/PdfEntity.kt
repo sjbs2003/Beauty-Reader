@@ -9,5 +9,6 @@ data class PdfEntity(
     @PrimaryKey val uri: String,
     val title: String,
     val lastOpenedDate: LocalDateTime,
-    val savedData: LocalDateTime
+    val savedData: LocalDateTime,
+    val userName: String? = null
 )

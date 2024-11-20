@@ -21,4 +21,10 @@ interface PDFDao {
 
     @Query("DELETE FROM pdfs WHERE lastOpenedDate < :date")
     suspend fun deleteOldPDFs(date: LocalDateTime)
+
+    @Query("SELECT DISTINCT userName FROM pdfs WHERE userName IS NOT NULL LIMIT 1")
+    fun getUserName(): Flow<String?>
+
+    @Query("UPDATE pdfs SET userName = :userName")
+    suspend fun updateUserName(userName: String)
 }

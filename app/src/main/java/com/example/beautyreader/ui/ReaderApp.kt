@@ -1,4 +1,4 @@
-package com.example.beautyreader
+package com.example.beautyreader.ui
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +27,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -34,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,8 +63,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.beautyreader.R
 import com.example.beautyreader.model.PdfEntity
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ReaderApp(
@@ -67,28 +75,75 @@ fun ReaderApp(
     var showFilePickerDialog by remember { mutableStateOf(false) }
     val bookContent by viewModel.bookContent.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+    val savedPdfs by viewModel.allPDFs.collectAsState(initial = emptyList())
     val context = LocalContext.current
+
+    // Show name dialog if userName is null
+    var showNameDialog by remember { mutableStateOf(userName == null) }
+    var name by remember { mutableStateOf("") }
+
+    if (showNameDialog) {
+        AlertDialog(
+            onDismissRequest = { /* Keep dialog open */ },
+            title = { Text("Welcome to Beauty Reader") },
+            text = {
+                Column {
+                    Text(
+                        "Enter your name to get started",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Your Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            viewModel.setUserName(name)
+                            showNameDialog = false
+                        }
+                    }
+                ) {
+                    Text("Get Started")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopBar(
+                userName = userName,
                 onUploadClick = { showFilePickerDialog = true },
                 currentPDF = bookContent?.let { content ->
                     PdfEntity(
-                        uri = viewModel.currentPDFUri.toString() ?: "",
+                        uri = viewModel.currentPDFUri.value?.toString() ?: "",
                         title = content.title,
                         lastOpenedDate = LocalDateTime.now(),
-                        savedData = LocalDateTime.now()
+                        savedData = LocalDateTime.now(),
+                        userName = userName
                     )
                 },
                 onDeleteClick = {
-                    viewModel.currentPDFUri.let { uri ->
+                    viewModel.currentPDFUri.value?.let { uri ->
                         viewModel.deletePDF(
                             PdfEntity(
                                 uri = uri.toString(),
                                 title = bookContent?.title ?: "Unknown book",
                                 lastOpenedDate = LocalDateTime.now(),
-                                savedData = LocalDateTime.now()
+                                savedData = LocalDateTime.now(),
+                                userName = userName
                             )
                         )
                         viewModel.clearCurrentBook()
@@ -116,7 +171,11 @@ fun ReaderApp(
                     currentPage = currentPage,
                     onPageChange = viewModel::navigateToPage
                 )
-            } ?: EmptyState(
+            } ?: HomeScreen(
+                pdfs = savedPdfs,
+                onPdfClick = { pdf ->
+                    viewModel.loadPDF(Uri.parse(pdf.uri), context)
+                },
                 onUploadClick = { showFilePickerDialog = true }
             )
         }
@@ -140,6 +199,7 @@ fun ReaderApp(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBar(
+    userName: String?,
     onUploadClick: () -> Unit,
     currentPDF: PdfEntity?,
     onDeleteClick: () -> Unit
@@ -159,7 +219,7 @@ fun TopBar(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = currentPDF?.title ?: "Beauty Reader" ,
+                    text = "Welcome, ${userName ?: "Reader"}",  // Use userName in title
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.SemiBold
                     )
@@ -402,5 +462,82 @@ fun FilePickerDialog(
 
     LaunchedEffect(Unit) {
         launcher.launch("application/pdf")
+    }
+}
+
+@Composable
+fun HomeScreen(
+    pdfs: List<PdfEntity>,
+    onPdfClick: (PdfEntity) -> Unit,
+    onUploadClick: () -> Unit
+) {
+    if (pdfs.isEmpty()) {
+        EmptyState(onUploadClick = onUploadClick)
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(pdfs) { pdf ->
+                PdfCard(
+                    pdf = pdf,
+                    onClick = { onPdfClick(pdf) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PdfCard(
+    pdf: PdfEntity,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // PDF Icon
+            Icon(
+                painter = painterResource(R.drawable.ic_book),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // PDF Details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = pdf.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Added ${pdf.savedData.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Arrow Icon
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open PDF",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
