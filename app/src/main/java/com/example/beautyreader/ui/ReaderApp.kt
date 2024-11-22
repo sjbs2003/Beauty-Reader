@@ -72,10 +72,11 @@ import java.time.format.DateTimeFormatter
 fun ReaderApp(
     viewModel: PDFViewModel = viewModel()
 ) {
+    val isReaderMode by viewModel.isReaderMode.collectAsState()
     var showFilePickerDialog by remember { mutableStateOf(false) }
     val bookContent by viewModel.bookContent.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
-    val userName by viewModel.userName.collectAsState()
+    val userName by viewModel.userName.collectAsState(initial = null)
     val savedPdfs by viewModel.allPDFs.collectAsState(initial = emptyList())
     val context = LocalContext.current
 
@@ -148,7 +149,8 @@ fun ReaderApp(
                         )
                         viewModel.clearCurrentBook()
                     }
-                }
+                },
+                onBackClick = if (isReaderMode) ({ viewModel.navigateBack() }) else null
             )
         }
     ) { padding ->
@@ -202,11 +204,22 @@ fun TopBar(
     userName: String?,
     onUploadClick: () -> Unit,
     currentPDF: PdfEntity?,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onBackClick: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     CenterAlignedTopAppBar(
+        navigationIcon = {
+            if (onBackClick != null) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Back"
+                    )
+                }
+            }
+        },
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.beautyreader.model.AppDatabase
 import com.example.beautyreader.model.PDFRepository
 import com.example.beautyreader.model.PdfEntity
+import com.example.beautyreader.model.UserPreferences
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -27,11 +28,17 @@ data class BookContent(
 
 class PDFViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val userPreferences = UserPreferences(application)
+    val userName = userPreferences.userName
+
     private val _currentPage = MutableStateFlow(0)
     val currentPage = _currentPage.asStateFlow()
 
     private val _bookContent = MutableStateFlow<BookContent?>(null)
     val bookContent = _bookContent.asStateFlow()
+
+    private val _isReaderMode = MutableStateFlow(false)
+    val isReaderMode = _isReaderMode.asStateFlow()
 
     private val repository: PDFRepository
     val allPDFs: Flow<List<PdfEntity>>
@@ -39,19 +46,10 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
     private var _currentPDFUri = MutableStateFlow<Uri?>(null)
     val currentPDFUri = _currentPDFUri.asStateFlow()
 
-    private val _userName = MutableStateFlow<String?>(null)
-    val userName = _userName.asStateFlow()
-
     init {
         val database = AppDatabase.getDatabase(application)
         repository = PDFRepository(database.pdfDao())
         allPDFs = repository.allPDFs
-
-        viewModelScope.launch {
-            repository.userName.collect { name ->
-                _userName.value = name
-            }
-        }
     }
 
     fun clearCurrentBook() {
@@ -62,6 +60,7 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadPDF(uri: Uri, context: Context) {
         viewModelScope.launch {
+            _isReaderMode.value = true
             withContext(Dispatchers.IO) {
                 try {
                     _currentPDFUri.value = uri
@@ -120,9 +119,14 @@ class PDFViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun navigateBack() {
+        _isReaderMode.value = false
+        clearCurrentBook()
+    }
+
     fun setUserName(name: String) {
         viewModelScope.launch {
-            repository.updateUserName(name)
+            userPreferences.saveUserName(name)
         }
     }
 }
